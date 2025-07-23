@@ -1,5 +1,9 @@
 <?php
 
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
+
 class ExerciceDashboard extends Module
 {
     protected $templateFile;
@@ -25,7 +29,6 @@ class ExerciceDashboard extends Module
     {
         return parent::install() &&
             $this->registerHook('dashboardZoneOne');
-    
     }
     public function uninstall()
     {
@@ -33,10 +36,44 @@ class ExerciceDashboard extends Module
             $this->unregisterHook('dashboardZoneOne');
     }
 
+    #Afficher sur le dashboard
     public function hookDashboardZoneOne()
     {
-        return 'coucou';
+       $temp = $this->callApi();
+      $this->context->smarty->assign([
+            'temp' => $temp['temp'] ?? null,
+            'city' => $temp['city'] ?? null,
+        ]);
+        return $this->fetch($this->templateFile);
+
     }
 
-  
+    #Connexion à l'API OpenWeatherMap
+    protected function callApi()
+    {
+        $keyApi = 'f2ecb01dca04faddc02b46914de93be8';
+        $city = 'Paris';
+        $url = 'https://api.openweathermap.org/data/2.5/weather?q=' . urlencode($city) . '&appid=' . $keyApi . '&units=metric';
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => 'Content-Type: application/json',
+            ],
+        ]);
+
+        $response = file_get_contents($url, false, $context);
+        if ($response === false) {
+            return false;
+        }
+
+        $data = json_decode($response, true);
+        if (isset($data['main']['temp'], $data['name'])) {
+            return [
+                'temp' => $data['main']['temp'],
+                'city' => $data['name']
+            ];
+        }
+
+        return false;
+    }
 }
