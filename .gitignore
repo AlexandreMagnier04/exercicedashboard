@@ -1,0 +1,12 @@
+/cache/
+/log/
+*.log
+*.tmp
+*.swp
+*.zip
+node_modules/
+.DS_Store
+.idea/
+.env
+vendor/
+composer.lock
