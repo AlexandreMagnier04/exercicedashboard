@@ -25,55 +25,78 @@ class ExerciceDashboard extends Module
         $this->templateFile = 'module:exercicedashboard/views/templates/hook/exercicedashboard.tpl';
     }
 
+    #Installation du module
     public function install()
     {
         return parent::install() &&
-            $this->registerHook('dashboardZoneOne');
+            $this->registerHook('dashboardZoneOne') &&
+            Configuration::updateValue('EXERCICEDASHBOARD_API_KEY', '') &&
+            Configuration::updateValue('EXERCICEDASHBOARD_CITY', 'Paris');
     }
+
+    #Désinstallation du module
     public function uninstall()
     {
         return parent::uninstall() &&
-            $this->unregisterHook('dashboardZoneOne');
+            $this->unregisterHook('dashboardZoneOne') &&
+            Configuration::deleteByName('EXERCICEDASHBOARD_API_KEY') &&
+            Configuration::deleteByName('EXERCICEDASHBOARD_CITY');
+    }
+    
+    #Configuration du module
+    public function getContent(){
+        if (Tools::isSubmit('submit_exercicedashboard_config')) {
+            Configuration::updateValue('EXERCICEDASHBOARD_API_KEY', Tools::getValue('EXERCICEDASHBOARD_API_KEY'));
+            Configuration::updateValue('EXERCICEDASHBOARD_CITY', Tools::getValue('EXERCICEDASHBOARD_CITY'));
+            
+            Tools::redirectAdmin($this->context->link->getAdminLink('AdminDashboard'));
+        }
+        return $this->renderConfigForm();
     }
 
+    #Formulaire de configuration
+    protected function renderConfigForm()
+    {
+        $this->context->smarty->assign([
+            'api_key' => Configuration::get('EXERCICEDASHBOARD_API_KEY'),
+            'city' => Configuration::get('EXERCICEDASHBOARD_CITY'),
+
+        ]);
+
+        return $this->fetch('module:exercicedashboard/views/templates/admin/config_form.tpl');
+    }
     #Afficher sur le dashboard
     public function hookDashboardZoneOne()
     {
-       $temp = $this->callApi();
-      $this->context->smarty->assign([
-            'temp' => $temp['temp'] ?? null,
-            'city' => $temp['city'] ?? null,
+        $weatherData = $this->callApi();
+        $this->context->smarty->assign([
+            'city' => Configuration::get('EXERCICEDASHBOARD_CITY'),
+            'temp' => $weatherData['main']['temp'] ?? null,
+            'desc' => $weatherData['weather'][0]['description'] ?? null,
+            'icon' => $weatherData['weather'][0]['icon'] ?? null,
         ]);
         return $this->fetch($this->templateFile);
-
     }
+
 
     #Connexion à l'API OpenWeatherMap
     protected function callApi()
     {
-        $keyApi = 'f2ecb01dca04faddc02b46914de93be8';
-        $city = 'Paris';
-        $url = 'https://api.openweathermap.org/data/2.5/weather?q=' . urlencode($city) . '&appid=' . $keyApi . '&units=metric';
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'header' => 'Content-Type: application/json',
-            ],
-        ]);
+        $apiKey = Configuration::get('EXERCICEDASHBOARD_API_KEY');
+        $city = Configuration::get('EXERCICEDASHBOARD_CITY');
 
-        $response = file_get_contents($url, false, $context);
-        if ($response === false) {
-            return false;
+        if (!$apiKey || !$city) {
+            return null;
         }
 
-        $data = json_decode($response, true);
-        if (isset($data['main']['temp'], $data['name'])) {
-            return [
-                'temp' => $data['main']['temp'],
-                'city' => $data['name']
-            ];
-        }
+        $url = "https://api.openweathermap.org/data/2.5/weather?q=" . urlencode($city) . "&appid=" . $apiKey . "&units=metric&lang=fr";
 
-        return false;
+
+        try {
+            $response = file_get_contents($url);
+            return json_decode($response, true);
+        } catch (Exception $e) {
+            return null;
+        }
     }
 }
