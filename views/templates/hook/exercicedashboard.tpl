@@ -5,4 +5,11 @@
     {/if}
     <p><strong>Température :</strong> {$temp} °C</p>
     <p><strong>Description :</strong> {$desc}</p>
-<div>
+
+    {if $update == 'manual'}
+    <form method="post">
+        <input type="hidden" name="update_weather" value="1">
+        <button type="submit" class="btn btn-primary">Mettre à jour maintenant</button>
+    </form>
+    {/if}
+</div>
